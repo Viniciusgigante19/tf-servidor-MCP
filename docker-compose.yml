@@ -12,8 +12,6 @@ services:
     restart: unless-stopped
     ports:
       - "5173:5173"
-    environment:
-      - IS_CONTAINER=TRUE
     networks:
       - app-network
 
@@ -24,12 +22,10 @@ services:
       context: .
       dockerfile: docker/node24-vite-compiler/Dockerfile
     volumes:
-      - public-project-volume:/app/public
+      - public-build-project-volume:/app/public/build
       - ./resources:/app/resources
       - nodemodules-project-volume:/app/node_modules
     restart: unless-stopped
-    environment:
-      - IS_CONTAINER=TRUE
     networks:
       - app-network
 
@@ -38,15 +34,13 @@ services:
     build:
       context: .
       dockerfile: docker/node24-web/Dockerfile.dev
-    env_file: .env
+    env_file: 
+      - .env
+      - .env.docker
     volumes:
       - .:/app
       - nodemodules-project-volume:/app/node_modules
     restart: unless-stopped
-    environment:
-      - IS_CONTAINER=TRUE
-      - POSTGRES_HOST=postgres_host
-      - POSTGRES_PORT=5432
     depends_on:
       - postgres-container
       - rabbitmq-container
@@ -60,14 +54,12 @@ services:
     build:
       context: .
       dockerfile: docker/node24-cli/Dockerfile
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     volumes:
       - .:/app
       - nodemodules-project-volume:/app/node_modules
-    environment:
-      - IS_CONTAINER=TRUE
-      - POSTGRES_HOST=postgres_host
-      - POSTGRES_PORT=5432
     networks:
       - app-network
     depends_on:
@@ -79,17 +71,13 @@ services:
     build:
       context: .
       dockerfile: docker/node24-worker/Dockerfile.dev
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     volumes:
       - .:/app
       - nodemodules-project-volume:/app/node_modules
     restart: unless-stopped
-    environment:
-      - IS_CONTAINER=TRUE
-      - POSTGRES_HOST=postgres_host
-      - POSTGRES_PORT=5432
-      - RABBITMQ_HOST=rabbitmq_host
-      - RABBITMQ_PORT=5672
     networks:
       - app-network
     depends_on:
@@ -101,7 +89,9 @@ services:
     build:
       context: .
       dockerfile: docker/node24-websocket/Dockerfile.dev
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     volumes:
       - .:/app
       - nodemodules-project-volume:/app/node_modules
@@ -109,12 +99,6 @@ services:
       - "8081:8081"
       - "3001:3001"
     restart: unless-stopped
-    environment:
-      - IS_CONTAINER=TRUE
-      - POSTGRES_HOST=postgres_host
-      - POSTGRES_PORT=5432
-      - RABBITMQ_HOST=rabbitmq_host
-      - RABBITMQ_PORT=5672
     networks:
       - app-network
     depends_on:
@@ -130,6 +114,7 @@ services:
       - "8080:80"
     volumes:
       - ./public:/var/www/public
+      - public-build-project-volume:/var/www/public/build
     depends_on:
       - nodeweb-container
     networks:
@@ -180,5 +165,5 @@ networks:
 volumes:
   pgdata-project-volume:
   nodemodules-project-volume:
-  public-project-volume:
+  public-build-project-volume:
   rabbitmq-volume:

@@ -1,52 +1,114 @@
 import { WebSocketServer } from "ws";
-import express from "express";
 import chalk from "chalk";
-
-const app = express();
-app.use(express.json());
+import { getConnection } from "./config/rabbit.js"; // ajusta o caminho se precisar
 
 const SOCKET_PORT = Number(process.env.SOCKET_PORT ?? 8081);
-const SOCKET_NOTIFY_PORT = Number(process.env.SOCKET_NOTIFY_PORT ?? 3001);
+const EXCHANGE_NAME = "websocket";
 
-const wss = new WebSocketServer({ port: SOCKET_PORT });
+const websocket = new WebSocketServer({ port: SOCKET_PORT });
 
-// --- helpers de broadcast ---
+// Canal global pro Rabbit, pra consumir E publicar
+let rabbitChannel = null;
 
-function broadcastString(message) {
-    wss.clients.forEach((client) => {
+function broadcastJson(payload) {
+    const message = JSON.stringify(payload);
+    websocket.clients.forEach((client) => {
         if (client.readyState === client.OPEN) {
             client.send(message);
         }
     });
 }
 
-function broadcastJson(payload) {
-    const message = JSON.stringify(payload);
-    broadcastString(message);
+// --- Bridge RabbitMQ <-> WebSocket ---
+async function setupRabbitWebsocketBridge() {
+    try {
+        const channel = await getConnection();
+        rabbitChannel = channel;
+
+        // Exchange fanout compartilhada
+        await channel.assertExchange(EXCHANGE_NAME, "fanout", { durable: true });
+
+        // Fila EXCLUSIVA pra esse processo WS
+        const q = await channel.assertQueue("", {
+            exclusive: true,
+            durable: false,
+            autoDelete: true,
+        });
+
+        await channel.bindQueue(q.queue, EXCHANGE_NAME, "");
+
+        console.log(
+            chalk.green(
+                `[Rabbit] WebSocket ligado no exchange "${EXCHANGE_NAME}" (fanout) com fila exclusiva "${q.queue}"`
+            )
+        );
+
+        // Consumindo TUDO que vem do Rabbit e repassando pros clientes
+        channel.consume(
+            q.queue,
+            (msg) => {
+                if (!msg) return;
+
+                let data;
+                try {
+                    data = JSON.parse(msg.content.toString());
+                } catch {
+                    console.error("[Rabbit] Mensagem inválida:", msg.content.toString());
+                    channel.ack(msg);
+                    return;
+                }
+
+                // Aqui definimos como isso vai aparecer pros clients
+                // data vem do próprio cliente (join/message) OU do evento de disconnect
+                if (data.type === "join" && data.name) {
+                    broadcastJson({
+                        type: "system",
+                        text: `${data.name} entrou no chat`,
+                    });
+                } else if (data.type === "leave" && data.name) {
+                    broadcastJson({
+                        type: "system",
+                        text: `${data.name} saiu do chat`,
+                    });
+                } else if (data.type === "message" && data.name && data.text) {
+                    broadcastJson({
+                        type: "message",
+                        name: data.name,
+                        text: data.text,
+                    });
+                } else {
+                    // Se quiser, pode só repassar cru
+                    console.log("[Rabbit] Tipo desconhecido vindo da fila:", data);
+                }
+
+                channel.ack(msg);
+            },
+            { noAck: false }
+        );
+    } catch (err) {
+        console.error(chalk.red("[Rabbit] Erro no bridge Rabbit -> WS:"), err);
+    }
 }
 
-// endpoint interno para workers notificarem o WebSocket
-app.post("/notify", (req, res) => {
-    const message = req.body;
-    console.log(message);
-    // se vier string crua, manda do jeitinho que veio
-    if (typeof message === "string") {
-        broadcastString(message);
-    } else if (message) {
-        // se vier objeto, manda como JSON
-        broadcastJson(message);
+setupRabbitWebsocketBridge();
+
+// helper pra publicar no exchange
+function publishToRabbit(payload) {
+    if (!rabbitChannel) {
+        console.warn("[Rabbit] Canal ainda não pronto, ignorando mensagem:", payload);
+        return;
     }
 
-    return res.json({ ok: true });
-});
-
-app.listen(SOCKET_NOTIFY_PORT, () =>
-    console.log(`- Web Notify server rodando na porta ${SOCKET_NOTIFY_PORT}`)
-);
+    rabbitChannel.publish(
+        EXCHANGE_NAME,
+        "", // routingKey ignorada em fanout
+        Buffer.from(JSON.stringify(payload))
+    );
+}
 
 // --- WebSocket ---
 
-wss.on("connection", (ws) => {
+websocket.on("connection", (ws) => {
     console.log(chalk.cyan("Cliente conectado.."));
 
     ws.on("message", (raw) => {
@@ -56,27 +118,29 @@ wss.on("connection", (ws) => {
         let data;
         try {
             data = JSON.parse(text);
-        } catch (e) {
+        } catch {
             console.log("Mensagem não é JSON válido, ignorando.");
             return;
         }
 
-        // cliente entrou no chat
+        // 👉 AGORA: nada de broadcast direto.
+        // Tudo que vier do client vai pra fila.
+
         if (data.type === "join" && data.name) {
-            // guardar nome no socket (ok em JS)
             ws.userName = data.name;
 
-            broadcastJson({
-                type: "system",
-                text: `${data.name} entrou no chat`,
+            // manda evento de "join" pra fila
+            publishToRabbit({
+                type: "join",
+                name: data.name,
             });
 
             return;
         }
 
-        // mensagem normal de chat
         if (data.type === "message" && data.name && data.text) {
-            broadcastJson({
+            // mensagem normal: também vai pra fila
+            publishToRabbit({
                 type: "message",
                 name: data.name,
                 text: data.text,
@@ -85,15 +149,16 @@ wss.on("connection", (ws) => {
             return;
         }
 
-        console.log("Tipo de mensagem desconhecido:", data);
+        console.log("Tipo de mensagem desconhecido vindo do client:", data);
     });
 
     ws.on("close", () => {
         console.log(chalk.gray("Cliente desconectado."));
         if (ws.userName) {
-            broadcastJson({
-                type: "system",
-                text: `${ws.userName} saiu do chat`,
+            // em vez de broadcast direto, manda um evento de "leave" pra fila
+            publishToRabbit({
+                type: "leave",
+                name: ws.userName,
             });
         }
     });

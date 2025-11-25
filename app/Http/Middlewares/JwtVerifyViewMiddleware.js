@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 export default function JwtVerifyViewMiddleware(request, response, next) {
 
-    const HEADER_TEXT = "Aula 12 - Websockets";
+    const HEADER_TEXT = "Aula 13 - Escalabilidade com Websockets e Filas";
     const { token } = request.cookies;
 
     console.log(request.cookies);

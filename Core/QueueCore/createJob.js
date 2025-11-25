@@ -42,8 +42,34 @@ export default function createJob(job) {
         await connection.close();
     };
 
+    const dispatchSocket = async (payload) => {
+        const { channel, connection } = await quickConnect();
+        const jobName = job.name;
+
+        const message = {
+            job: jobName,
+            payload: payload,
+        };
+
+        const exchange = "websocket";
+
+        await channel.assertExchange(exchange, "fanout", { durable: true });
+
+        channel.publish(
+            exchange,
+            "",
+            Buffer.from(JSON.stringify(message))
+        );
+
+        console.log("[Job] Broadcast via exchange " + exchange + ": " + jobName);
+
+        await channel.close();
+        await connection.close();
+    };
+
     return {
-        dispatch: dispatch,
+        dispatch,
+        dispatchSocket,
         ...job
     };
 }

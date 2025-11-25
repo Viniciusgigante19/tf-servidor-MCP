@@ -13,8 +13,8 @@ import resolveParams from "./Core/QueueCore/resolveParams.js";
 
     const worker = await createWorker(dir);
 
-    const { queue, concurrency } = resolveParams();
+    const { queue, type } = resolveParams();
 
-    await worker.listen(queue, concurrency);
+    await worker.listen(queue, type);
 
 })();

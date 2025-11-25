@@ -13,12 +13,13 @@ app.use("/", routes);
 
 initRelations();
 
-const nodePort = process.env.NODE_PORT ?? 3000;
+const nodePort = process.env.NODEWEB_PORT;
 /*** */
 /** Escolher as portas baseado se foi inicializado com ou sem nginx */
 const webPort = process.env.IS_CONTAINER ? 8080 : nodePort;
 
 app.listen(nodePort, () => {
+    console.log(process.env.TESTE);
     console.log(chalk.green(`Servidor: http://localhost:${webPort}`));
     console.log(chalk.yellow(`Apis Swagger: http://localhost:${webPort}/docs`));
 });

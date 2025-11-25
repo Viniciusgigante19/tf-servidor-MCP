@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "../../hooks/useWebsocket/useWebsocket";
 import { ChatMessage } from "./Chat.types";
 
@@ -16,6 +16,9 @@ export default function Chat() {
     const [joined, setJoined] = useState(false);
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+    // ref para o "final" da lista de mensagens
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const addMessage = (msg: Omit<ChatMessage, "id">) => {
         setMessages((prev) => [...prev, { id: Date.now(), ...msg }]);
@@ -64,6 +67,16 @@ export default function Chat() {
             });
         }
     }, [lastMessage, name]);
+
+    // sempre que messages mudar, rola para o final
+    useEffect(() => {
+        if (!messagesEndRef.current) return;
+
+        messagesEndRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "end",
+        });
+    }, [messages]);
 
     const handleJoin = (e: FormEvent) => {
         e.preventDefault();
@@ -165,6 +178,9 @@ export default function Chat() {
                                     </div>
                                 </div>
                             ))}
+
+                            {/* âncora para o scroll ficar sempre “pendurado” no final */}
+                            <div ref={messagesEndRef} />
                         </div>
 
                         <form onSubmit={handleSend} className="d-flex gap-2">

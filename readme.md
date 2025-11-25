@@ -1,4 +1,4 @@
-# Aula 12 - Websockets <a name="unifaat-frontend-project"></a>
+# Aula 13 - Escalabilidade com Websockets e Filas <a name="unifaat-frontend-project"></a>
 
 ## 📑 Sumário
 

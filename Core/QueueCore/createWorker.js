@@ -1,35 +1,46 @@
-
 import { getConnection } from '../../config/rabbit.js';
 import registerJobs from './registerJobs.js';
 
+// vou assumir que getTime está definido em algum util seu
+// se não, você já tinha esse helper em outro lugar no código original
+
 /**
- * Lófica de criação do entrypoint worker
+ * Lógica de criação do entrypoint worker
  * Registro e event loop
- * Podemos escolher o diretório de registro dos Jobs e a fila de conexão do worker/consumer
+ * Podemos escolher o diretório de registro dos Jobs
  */
 export default async function createWorker(dir) {
-
     /** Registro dos jobs */
     const jobMap = await registerJobs(dir);
 
-    async function listen(queue = "default", concurrency = 1) {
+    /**
+     * listen(queue, type)
+     *
+     * queue: nome da fila (string)
+     * type:
+     *   - undefined  => worker normal (consome direto da fila)
+     *   - 'websocket' => worker ligado num exchange fanout
+     */
+    async function listen(queue = 'default', type = undefined) {
 
-        /**
-         * Abrir conexão com o banco de dados de fila intermitente
-         */
         const channel = await getConnection();
 
-        /**
-         * Parte da conexão onde o worker escolhe qual fila irá ouvir
-         */
+        // sempre garante a fila
         await channel.assertQueue(queue, { durable: true });
 
-        // 👇 Isso aqui é o que faz o worker pegar só 1 por vez
-        await channel.prefetch(concurrency);
+        // se for worker "websocket", ligar num exchange fanout
+        if (type === 'websocket') {
+            const exchange = "websocket";
 
-        /** 
-         * Inicialização do event loop
-         */
+            await channel.assertExchange(exchange, 'fanout', { durable: true });
+            await channel.bindQueue(queue, exchange, '');
+
+            console.log(`[WORKER] Ligado ao exchange "${exchange}" (fanout) com queue "${queue}"`);
+        }
+
+        // concorrência fixa em 1 (como no seu comentário)
+        await channel.prefetch(1);
+
         channel.consume(queue, async (msg) => {
             if (!msg) {
                 return;
@@ -38,16 +49,8 @@ export default async function createWorker(dir) {
             const start = Date.now();
 
             try {
-
-                /**
-                 * Desestrutura a info enviada pelo producer, que possui o job e o paylod
-                 */
                 const { job, payload } = JSON.parse(msg.content.toString());
 
-                /** Encontra o job no registro de jobs
-                 * Se encontrar, seu valor será a função handle que será executada
-                 * Se nao, erro
-                 */
                 const jobHandle = jobMap[job];
 
                 if (!jobHandle) {
@@ -56,30 +59,25 @@ export default async function createWorker(dir) {
 
                 console.log(`[${getTime()}] Executando ${job} da fila "${queue}"`);
 
-                /** Execução da funcão handle do job */
                 await jobHandle(payload);
 
-                /** Calcula o tempo de execução da fila */
                 const duration = ((Date.now() - start) / 1000).toFixed(3);
 
-                console.log(`[${getTime()}] Executado ${job} da fila "${queue}" (Finalizado em ${duration}s)`);
+                console.log(
+                    `[${getTime()}] Executado ${job} da fila "${queue}" (Finalizado em ${duration}s)`
+                );
 
-                /** Remover o job da fila */
                 channel.ack(msg);
-
             } catch (err) {
-
                 console.error(`[${getTime()}] Erro ao processar job:`, err);
 
-                /** Retornar o job da fila */
+                // requeue = false (joga fora ou vai pra DLX, dependendo da config)
                 channel.nack(msg, false, false);
-
             }
         });
 
         console.log(`[WORKER] Fila: "${queue}"`);
-        console.log(`[WORKER] Concorrência: ${concurrency}`);
-
+        console.log(`[WORKER] Tipo: ${type || 'normal'}`);
     }
 
     return { listen };
