@@ -1,164 +1,117 @@
 // _mcp.js
-import http from "node:http";
+import "./bootstrap/app.js";
+
+import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
+import express from "express";
+import { z } from "zod";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
-import "./bootstrap/app.js"; // mantém se você precisa disso pro resto da app
+// ====================== MCP SERVER ======================
 
-async function main() {
-    // ===== 1) Cria o servidor MCP =====
-    const server = new McpServer({
-        name: "devweb-mcp-http",
-        version: "1.0.0",
-    });
+const server = new McpServer({
+    name: "devweb-mcp-http",
+    version: "1.0.0",
+});
 
-    // ===== 2) Tool básica embutida (ping) =====
-    server.registerTool(
-        "ping",
-        {
-            title: "Ping",
-            description: "Tool de teste que responde pong.",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    msg: { type: "string" }
-                },
-                required: [],
-                additionalProperties: false
-            }
-        },
-        async (args, ctx) => {
-            const msg = args?.msg ?? "ok";
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `pong: ${msg}`
-                    }
-                ]
-            };
+// ---- loader: chama todas as funções exportadas em ./app/Tools ----
+
+async function registerToolsFromDir(dirUrl) {
+    const dirPath = fileURLToPath(dirUrl);
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    const registered = [];
+
+    for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        if (!entry.name.endsWith(".js") && !entry.name.endsWith(".mjs")) continue;
+
+        const fullUrl = new URL(entry.name, dirUrl);
+        const mod = await import(fullUrl.href);
+
+        // cada export que for função vira uma "definição de tool"
+        for (const value of Object.values(mod)) {
+            if (typeof value !== "function") continue;
+
+            // a função é responsável por fazer server.registerTool(...)
+            value(server);
+            registered.push(value.name);
         }
-    );
+    }
 
-    // ===== 3) Transport HTTP MCP =====
-    const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined // stateless
-    });
-
-    await server.connect(transport);
-
-    const PORT = process.env.MCP_PORT ? Number(process.env.MCP_PORT) : 7777;
-
-    // ===== 4) HTTP server na raiz / =====
-    const httpServer = http.createServer((req, res) => {
-        // Health check simples (pra testar via curl)
-        if (req.method === "GET" && req.url === "/health") {
-            res.statusCode = 200;
-            res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({ ok: true, mcp: "devweb-mcp-http" }));
-            return;
-        }
-
-        // Endpoint MCP: POST /
-        if (req.url === "/" && req.method === "POST") {
-            let body = "";
-
-            req.on("data", (chunk) => {
-                body += chunk;
-            });
-
-            req.on("end", async () => {
-                let json = undefined;
-
-                if (body && body.trim() !== "") {
-                    try {
-                        json = JSON.parse(body);
-                    } catch (e) {
-                        console.error("[MCP] JSON inválido recebido:", e);
-                        res.statusCode = 400;
-                        res.setHeader("Content-Type", "application/json");
-                        res.end(
-                            JSON.stringify({
-                                jsonrpc: "2.0",
-                                error: {
-                                    code: -32700,
-                                    message: "Invalid JSON"
-                                },
-                                id: null
-                            })
-                        );
-                        return;
-                    }
-                }
-
-                try {
-                    await transport.handleRequest(req, res, json);
-                } catch (error) {
-                    console.error("[MCP] Erro ao tratar request MCP:", error);
-                    if (!res.headersSent) {
-                        res.statusCode = 500;
-                        res.setHeader("Content-Type", "application/json");
-                        res.end(
-                            JSON.stringify({
-                                jsonrpc: "2.0",
-                                error: {
-                                    code: -32603,
-                                    message: "Internal server error"
-                                },
-                                id: json?.id ?? null
-                            })
-                        );
-                    }
-                }
-            });
-
-            req.on("error", (err) => {
-                console.error("[MCP] Erro no stream de request:", err);
-                if (!res.headersSent) {
-                    res.statusCode = 400;
-                    res.setHeader("Content-Type", "application/json");
-                    res.end(
-                        JSON.stringify({
-                            jsonrpc: "2.0",
-                            error: {
-                                code: -32602,
-                                message: "Request stream error"
-                            },
-                            id: null
-                        })
-                    );
-                }
-            });
-
-            return;
-        }
-
-        // Qualquer outra coisa -> 404 em JSON (nada de HTML)
-        res.statusCode = 404;
-        res.setHeader("Content-Type", "application/json");
-        res.end(
-            JSON.stringify({
-                jsonrpc: "2.0",
-                error: {
-                    code: -32601,
-                    message: "Not found"
-                },
-                id: null
-            })
-        );
-    });
-
-    httpServer.listen(PORT, () => {
-        console.log(`[MCP] Servidor MCP HTTP em http://127.0.0.1:${PORT}`);
-    });
-
-    httpServer.on("error", (err) => {
-        console.error("[MCP] Erro ao subir HTTP:", err);
-        process.exit(1);
-    });
+    console.log("[MCP] Tools registradas:", registered);
 }
 
-main().catch((err) => {
-    console.error("[MCP] Erro fatal:", err);
-    process.exit(1);
+// registra as tools
+await registerToolsFromDir(new URL("./app/Tools/", import.meta.url));
+
+// transport MCP HTTP
+const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+});
+
+await server.connect(transport);
+
+// ====================== HTTP (Express + Zod) ======================
+
+const app = express();
+const PORT = Number(process.env.MCP_PORT ?? 7777);
+
+app.use(express.json({ limit: "1mb" }));
+
+// JSON-RPC 2.0 bem mínimo
+const jsonRpcSchema = z.object({
+    jsonrpc: z.literal("2.0"),
+    id: z.union([z.string(), z.number(), z.null()]).optional(),
+    method: z.string(),
+    params: z.any().optional(),
+});
+
+const jsonRpcError = (id, code, message) => ({
+    jsonrpc: "2.0",
+    error: { code, message },
+    id: id ?? null,
+});
+
+// health
+app.get("/health", (_req, res) => {
+    res.json({ ok: true, mcp: server.name });
+});
+
+// endpoint MCP
+app.post("/", async (req, res) => {
+    const parsed = jsonRpcSchema.safeParse(req.body ?? {});
+
+    if (!parsed.success) {
+        return res
+            .status(400)
+            .json(jsonRpcError(null, -32700, "Invalid JSON-RPC request"));
+    }
+
+    const payload = parsed.data;
+
+    try {
+        // req/res do Express ainda são os nativos do Node, o transport aceita
+        await transport.handleRequest(req, res, payload);
+    } catch (err) {
+        console.error("[MCP] Erro ao tratar request MCP:", err);
+        if (res.headersSent) return;
+
+        res
+            .status(500)
+            .json(jsonRpcError(payload.id, -32603, "Internal server error"));
+    }
+});
+
+// 404 em JSON
+app.use((_req, res) => {
+    res.status(404).json(jsonRpcError(null, -32601, "Not found"));
+});
+
+// só Express, sem http.createServer
+app.listen(PORT, () => {
+    console.log(`[MCP] MCP HTTP em http://127.0.0.1:${PORT}`);
 });
