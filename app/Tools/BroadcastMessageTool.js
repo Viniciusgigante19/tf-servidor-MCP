@@ -1,6 +1,6 @@
 // app/Tools/broadcastMessage.js
 
-import FirstJob from "../Jobs/FirstJob";
+import FirstJob from "../Jobs/FirstJob.js";
 
 export function broadcastMessage(server) {
     server.registerTool(
