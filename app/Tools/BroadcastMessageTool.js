@@ -1,5 +1,7 @@
 // app/Tools/broadcastMessage.js
 
+import FirstJob from "../Jobs/FirstJob";
+
 export function broadcastMessage(server) {
     server.registerTool(
         broadcastMessage.name, // "broadcastMessage"
@@ -16,10 +18,13 @@ export function broadcastMessage(server) {
             },
         },
         async (args, ctx) => {
-            const text = args.text;
+            const { name, text } = args;
 
-            // aqui você pluga Rabbit/WebSocket se quiser
-            // publishToRabbit({ type: "message", name: "MCP", text });
+            await FirstJob.dispatchSocket({
+                type: "message",
+                name: name,
+                text: text
+            })
 
             return {
                 content: [
