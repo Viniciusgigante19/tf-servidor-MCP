@@ -118,7 +118,7 @@ export default function Chat() {
             <div className="col-12 col-md-8 col-lg-6">
                 <p className="mb-2">
                     <strong>Status WebSocket:</strong> {statusLabel(status)} (
-                    <code>ws://localhost:8081</code>)
+                    <code>wss://unifaat.luantavares.com/websocket</code>)
                 </p>
 
                 {!joined ? (
