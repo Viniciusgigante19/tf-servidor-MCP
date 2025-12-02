@@ -5,14 +5,14 @@ import FirstJob from "../Jobs/FirstJob.js";
 
 export function broadcastMessage(server) {
     server.registerTool(
-        "broadcastMessage", // ← string, é isso que o SDK espera
+        broadcastMessage.name, // ← string, é isso que o SDK espera
 
         {
             description: "Envia uma mensagem para todos os clientes conectados.",
             // Agora é Zod, não JSON Schema
             inputSchema: z.object({
-                name: z.string().optional(),
-                text: z.string(),
+                name: z.string().describe("Nome do usuário que está mandando a mensagem").optional(),
+                text: z.string().describe("Mensagem de texto a ser enviada"),
             }),
         },
 
