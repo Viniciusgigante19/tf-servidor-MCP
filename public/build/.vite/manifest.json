@@ -1,0 +1,121 @@
+{
+  "../node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2": {
+    "file": "fa-brands-400.woff2",
+    "src": "../node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2"
+  },
+  "../node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2": {
+    "file": "fa-regular-400.woff2",
+    "src": "../node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2"
+  },
+  "../node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2": {
+    "file": "fa-solid-900.woff2",
+    "src": "../node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2"
+  },
+  "_Button.js": {
+    "file": "Button.js",
+    "name": "Button",
+    "imports": [
+      "js/app.tsx",
+      "_index.js",
+      "_catchError.js"
+    ]
+  },
+  "_catchError.js": {
+    "file": "catchError.js",
+    "name": "catchError",
+    "imports": [
+      "_index2.js"
+    ]
+  },
+  "_index.js": {
+    "file": "index.js",
+    "name": "index",
+    "imports": [
+      "js/app.tsx"
+    ]
+  },
+  "_index2.js": {
+    "file": "index2.js",
+    "name": "index"
+  },
+  "js/React/Pages/Example/Example.tsx": {
+    "file": "Example.js",
+    "name": "Example",
+    "src": "js/React/Pages/Example/Example.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "js/app.tsx",
+      "_index.js"
+    ]
+  },
+  "js/React/Pages/ExampleGlobal/ExampleGlobal.tsx": {
+    "file": "ExampleGlobal.js",
+    "name": "ExampleGlobal",
+    "src": "js/React/Pages/ExampleGlobal/ExampleGlobal.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "js/app.tsx",
+      "_index.js",
+      "_Button.js",
+      "_catchError.js",
+      "_index2.js"
+    ]
+  },
+  "js/React/Pages/Login/Login.tsx": {
+    "file": "Login.js",
+    "name": "Login",
+    "src": "js/React/Pages/Login/Login.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "js/app.tsx",
+      "_index.js",
+      "_catchError.js",
+      "_index2.js"
+    ]
+  },
+  "js/React/Pages/Products/Products.tsx": {
+    "file": "Products.js",
+    "name": "Products",
+    "src": "js/React/Pages/Products/Products.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "js/app.tsx",
+      "_index.js",
+      "_Button.js",
+      "_catchError.js",
+      "_index2.js"
+    ]
+  },
+  "js/React/Pages/Users/Users.tsx": {
+    "file": "Users.js",
+    "name": "Users",
+    "src": "js/React/Pages/Users/Users.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "js/app.tsx",
+      "_index.js",
+      "_index2.js"
+    ]
+  },
+  "js/app.tsx": {
+    "file": "app.js",
+    "name": "app",
+    "src": "js/app.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "js/React/Pages/Example/Example.tsx",
+      "js/React/Pages/ExampleGlobal/ExampleGlobal.tsx",
+      "js/React/Pages/Login/Login.tsx",
+      "js/React/Pages/Products/Products.tsx",
+      "js/React/Pages/Users/Users.tsx"
+    ],
+    "css": [
+      "app.css"
+    ],
+    "assets": [
+      "fa-brands-400.woff2",
+      "fa-regular-400.woff2",
+      "fa-solid-900.woff2"
+    ]
+  }
+}

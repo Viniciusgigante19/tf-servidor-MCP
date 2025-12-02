@@ -1,0 +1,1 @@
+import{a as t}from"./index2.js";const e={},a=e?.API_DOMAIN,n=t.create({baseURL:a||"http://localhost:8080",withCredentials:!0}),i=s=>t.isAxiosError(s)?s.status===401?{error:"UNAUTHORIZED"}:{error:typeof s.response?.data=="string"&&s.response.data||s.message}:{error:s?.message??"Unknown error"};export{n as b,i as c};

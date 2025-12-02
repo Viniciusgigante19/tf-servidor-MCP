@@ -1,0 +1,1 @@
+import{j as s}from"./app.js";import{r}from"./index.js";import{a as o}from"./index2.js";function m(){const[a,e]=r.useState();return r.useEffect(()=>{(async()=>{const{data:t}=await o.get("http://localhost:8080/api/users");e(t)})()},[]),s.jsx("ul",{children:a&&a.rows.map(t=>s.jsx("li",{children:t.name}))})}export{m as default};
