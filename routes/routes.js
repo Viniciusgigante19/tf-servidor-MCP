@@ -37,7 +37,7 @@ export default (function () {
     app.use("/api/users", CorsMiddleware, JwtVerifyApiMiddleware, apiUser);
 
     //Products
-    app.use("/api/products", CorsMiddleware,/* JwtVerifyApiMiddleware,*/ apiProduct);
+    app.use("/api/products", CorsMiddleware, apiProduct);
 
     //// Views
     app.use('/', web);

@@ -1,0 +1,3 @@
+docker exec -it unifaat-frontend-project-postgres-container-1 psql -U aluno -d unifaat
+
+docker stop $(docker ps -q) && docker rm $(docker ps -aq)

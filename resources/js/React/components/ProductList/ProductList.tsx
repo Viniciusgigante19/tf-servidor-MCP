@@ -8,7 +8,17 @@ import { ButtonRef } from "../Button/Button.types";
 
 export default function ProductList({ products, onDelete }: ProductListProps) {
 
-    const [data, setData] = useState<ListApi<ProductModel> | "error" | undefined>(products);
+    // Inicializa com um objeto seguro compatível com ListApi
+    const [data, setData] = useState<ListApi<ProductModel> | "error">(
+        products ?? {
+            rows: [],
+            count: 0,
+            limit: 10,
+            page: 1,
+            next: null,
+            totalPages: 0
+        }
+    );
 
     const deleteButtonsRef = useRef<Map<number, ButtonRef>>(new Map);
 
@@ -17,30 +27,29 @@ export default function ProductList({ products, onDelete }: ProductListProps) {
             deleteButtonsRef.current.set(id, el);
             return;
         }
-
         deleteButtonsRef.current.delete(id);
     }, []);
 
     useEffect(() => {
-        setData(products);
+        if (products) {
+            setData(products);
+        }
     }, [products]);
 
+    console.log("DATA RECEBIDA", data);
 
     const deleteProductHandler = (id: number) => {
-
         return async () => {
-
             deleteButtonsRef.current.get(id)?.disable();
-            const data = await productDeleteApi(id);
+            const result = await productDeleteApi(id);
 
-            if (data !== null) {
+            if (result !== null) {
                 deleteButtonsRef.current.get(id)?.enable();
                 return;
             }
 
             onDelete?.();
         }
-
     }
 
     if (!data) {
@@ -56,10 +65,9 @@ export default function ProductList({ products, onDelete }: ProductListProps) {
         return <div className="alert alert-warning">Erro na API.</div>;
     }
 
-
     return (
         <div>
-            {data.rows.length === 0 ? (
+            {data.rows?.length === 0 ? (
                 <div className="alert alert-warning">Nenhum produto encontrado.</div>
             ) : (
                 <div className="row row-cols-1 row-cols-md-2 g-4">
