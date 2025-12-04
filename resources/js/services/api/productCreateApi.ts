@@ -1,4 +1,4 @@
-import { ProductModel } from "@app/js/app.types";
+import { ProductModel } from "../../app.types";
 import { baseAxios } from "../axiosApi";
 import catchError from "../catchError";
 
