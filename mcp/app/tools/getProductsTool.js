@@ -1,4 +1,4 @@
-import productListApi from '../../../resources/js/services/api/productListApi.ts';
+import productListApi from '../resources/productList.js';
 
 export default function registerGetProductsTool(server) {
   server.registerTool('getProducts', async (params) => {
