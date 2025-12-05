@@ -1,3 +1,4 @@
+// mcp\app\tools\getProductsTool.js
 import productListApi from '../resources/productList.js';
 
 export default function registerGetProductsTool(server) {

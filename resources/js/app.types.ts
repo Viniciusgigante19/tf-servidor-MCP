@@ -4,6 +4,9 @@ export type LoginApi = {
     token: string;
     expires_in_seconds: string;
 }
+export type ProductListMcpProps = {
+  products: ListApi<ProductModel> | "error";
+};
 
 export type UserModel = {
     id: number;

@@ -175,7 +175,6 @@ services:
         aliases:
           - rabbitmq_host
 
-
 #OTHERS
 
 networks:
