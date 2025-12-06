@@ -47,7 +47,7 @@ async function registerToolsFromDir(dirUrl) {
 }
 
 // registra as tools
-await registerToolsFromDir(new URL("./mcp/app/Tools/", import.meta.url));
+await registerToolsFromDir(new URL("./mcp/app/tools/", import.meta.url));
 
 
 // transport MCP HTTP

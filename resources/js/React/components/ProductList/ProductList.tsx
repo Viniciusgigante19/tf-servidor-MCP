@@ -36,8 +36,6 @@ export default function ProductList({ products, onDelete }: ProductListProps) {
         }
     }, [products]);
 
-    console.log("DATA RECEBIDA", data);
-
     const deleteProductHandler = (id: number) => {
         return async () => {
             deleteButtonsRef.current.get(id)?.disable();
